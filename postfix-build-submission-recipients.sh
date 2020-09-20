@@ -7,6 +7,8 @@
 # License       : BSD 3-Clause "New" or "Revised" License
 # ======================================================================================
 
+renice -n 10 $$ > /dev/null
+
 CONFIGFILE="/root/postfix-bounce-report/config.xml"
 MAILLOG=$(xmllint --xpath 'string(/config/maillog)' $CONFIGFILE)
 RECIPIENTS_LIST=$(xmllint --xpath 'string(/config/recipients_list)' $CONFIGFILE)
