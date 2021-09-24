@@ -1,5 +1,20 @@
 # postfix-bounce-report
-The script generates an HTML report based on DDNS blacklist rejected messages. Another script continuously writes "recipient addresses" into a list. If an incoming message is rejected and is present in the list of "recipients", the subject of email is changing.
+The script generates an HTML report based on rejected messages. Another script continuously writes "recipient addresses" into a list. If an incoming message is rejected and is present in the list of "recipients", the subject of email is changing.
+
+<!-- TOC -->
+
+- [postfix-bounce-report](#postfix-bounce-report)
+    - [FEATURES](#features)
+    - [HOW TO INSTALL](#how-to-install)
+        - [PREREQUISITES PERL INTERPRETER](#prerequisites-perl-interpreter)
+        - [CLONE REPOSITORY](#clone-repository)
+    - [HOW TO USE](#how-to-use)
+        - [CONFIGURATION](#configuration)
+        - [CREATE SCHEDULED TASKS](#create-scheduled-tasks)
+    - [ADDITIONAL INFORMATION](#additional-information)
+    - [LICENSE](#license)
+
+<!-- /TOC -->
 
 ## FEATURES
 - build_submission_recipients.sh	: Analyzes the postfix maillog for outgoing e-mails and continuously creates a list of recipients
