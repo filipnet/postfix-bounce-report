@@ -25,7 +25,7 @@ The script generates an HTML report based on rejected messages. Another script c
 ### PREREQUISITES PERL INTERPRETER
 
 Install Perl Package
-- Once System is fully updated, you can install perl package through ```yum install perl``` command.
+- Once System is fully updated, you can install perl package through ```dnf install perl``` command.
 
 Check Perl Version
 - Since the package is installed now, you can check the Perl version through ```perl -v``` command.

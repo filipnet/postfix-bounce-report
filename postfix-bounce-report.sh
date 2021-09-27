@@ -11,6 +11,7 @@
 renice -n 10 $$ > /dev/null
 export LC_ALL=de_DE.utf8
 
+# Read XML configuration file and create variables set
 CONFIGFILE="/root/postfix-bounce-report/config.xml"
 MAILLOG=$(xmllint --xpath 'string(/config/maillog)' $CONFIGFILE)
 LOGMAILFROM=$(xmllint --xpath 'string(/config/logmail_from)' $CONFIGFILE)
@@ -26,6 +27,7 @@ TIME_START=$(date +"%s")
 ALLBOUNCES=`cat "${MAILLOG}" |grep "$(date -d '-'${PERIOD}' hour' '+%b %e')" |grep "${PATTERN}"`
 COUNTBOUNCES=$( [ -n "$ALLBOUNCES" ] && echo "$ALLBOUNCES" | wc -l || echo 0 )
 
+# Function for creating the HTML report
 if [ ${COUNTBOUNCES} -gt 0 ]; then
         MAILINFO='<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd"><html><head><title></title>'
         MAILINFO+='<style>'
@@ -50,11 +52,13 @@ table.blueTable td, table.blueTable th { border: 1px solid #AAAAAA; padding: 3px
 
                 if [[ "$RECIPIENTS_CHECK" = true ]]; then
                         MAILFROM=$(perl -pe "s/.*?from=<(.*?)>.*/\1/gm" <<< ${BOUNCE})
-                        if [[ "$MAILFROM" =~ $(echo ^\($(paste -sd'|' ${RECIPIENTS_LIST})\)$) ]]; then
+                        if [ -z "${MAILFROM}" ]; then
+                                MAILFROM="undefined"
+                        elif [[ "$MAILFROM" =~ $(echo ^\($(paste -sd'|' ${RECIPIENTS_LIST})\)$) ]]; then
                                 #echo "$MAILFROM is in the list"
                                 MAILFROM=$(perl -pe "s/.*?from=<(.*?)>.*/\1/gm" <<< ${BOUNCE})
                                 MAILFROM="<span style='color:#FFFFFF; background-color:#FF0000'><b> ${MAILFROM} </b></span>"
-                                BOUNCESEVERETY="[CRITICAL] "
+                                BOUNCESEVERETY="[CRITICAL]"
                         else
                                 #echo "$MAILFROM is not in the list"
                                 MAILFROM=$(perl -pe "s/.*?from=<(.*?)>.*/\1/gm" <<< ${BOUNCE})
@@ -91,14 +95,16 @@ table.blueTable td, table.blueTable th { border: 1px solid #AAAAAA; padding: 3px
         MAILINFO+="<tr><td><strong>Script runtime:</strong></td><td>$((${TIME_DIFF} / 60)) Minutes</td><td>$((${TIME_DIFF} % 60)) Seconds</td><td></td></tr>"
         MAILINFO+="</table></body></html>"
 
+        # If the criticality is CRITICAL it will always remain
         if [ ! $BOUNCESEVERETY ]; then
-                if [ ${COUNTBOUNCES} -gt "${BOUNCESEVERETY_THRESHOLD}" ]; then BOUNCESEVERETY="[WARNING] "; else BOUNCESEVERETY="[INFO] "; fi
+                if [ ${COUNTBOUNCES} -gt "${BOUNCESEVERETY_THRESHOLD}" ]; then BOUNCESEVERETY="[WARNING]"; else BOUNCESEVERETY="[INFO]"; fi
         fi
 
+        # E-Mail notification function
         (
         echo "From: ${LOGMAILFROM}"
         echo "To: ${LOGMAILTO}"
-        echo "Subject: ${BOUNCESEVERETY}${LOGMAILSUBJECT}"
+        echo "Subject: ${BOUNCESEVERETY} ${LOGMAILSUBJECT} for ${HOSTNAME}"
         echo "Mime-Version: 1.0"
         echo "Content-Type: text/html"
         echo ${MAILINFO}
