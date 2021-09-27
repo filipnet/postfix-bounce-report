@@ -5,6 +5,7 @@ The script generates an HTML report based on rejected messages. Another script c
 
 - [postfix-bounce-report](#postfix-bounce-report)
     - [FEATURES](#features)
+    - [EXAMPLE](#example)
     - [HOW TO INSTALL](#how-to-install)
         - [PREREQUISITES PERL INTERPRETER](#prerequisites-perl-interpreter)
         - [CLONE REPOSITORY](#clone-repository)
@@ -21,7 +22,11 @@ The script generates an HTML report based on rejected messages. Another script c
 - postfix-bounce-report.sh		: Analyzes the postfix logfile for bounced emails by DDNS blacklist, optionaly validate/cross check FROM-value against submission list. Script also generates HTML report and send via sendmail
 - The subject is regular "[INFO] Postfix Bounce Report", a threshold value can be parameterized where the subject is changed to [WARNING]. For a match with the submission recipients list a [CRITIAL] is created
 
+## EXAMPLE
+<img src="images/postfix-bounce-report-html-example.png" alt="Postfix Bounce Report HTML Example" width="100%"/>
+
 ## HOW TO INSTALL
+
 ### PREREQUISITES PERL INTERPRETER
 
 Install Perl Package
@@ -39,6 +44,7 @@ To make the scripts universally applicable, some settings like email addresses a
 Please note that the scripts must be made executable before the first use. ```chmod +x ~/*.sh```
 
 ## HOW TO USE
+
 ### CONFIGURATION
 Rename the file ```config.xml.sample``` to ```config.xml``` and adapt it to your system environment.
 ```
