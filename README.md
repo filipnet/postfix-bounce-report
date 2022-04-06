@@ -21,6 +21,7 @@ The script generates an HTML report based on rejected messages. Another script c
 - build_submission_recipients.sh	: Analyzes the postfix maillog for outgoing e-mails and continuously creates a list of recipients
 - postfix-bounce-report.sh		: Analyzes the postfix logfile for bounced emails by DDNS blacklist, optionaly validate/cross check FROM-value against submission list. Script also generates HTML report and send via sendmail
 - The subject is regular "[INFO] Postfix Bounce Report", a threshold value can be parameterized where the subject is changed to [WARNING]. For a match with the submission recipients list a [CRITIAL] is created
+- Since a spoofed e-mail address would lead to a CRITICAL, the definition of toplevel domains has been implemented in version 1.1.2. Spoofed addresses are thus recognized and marked accordingly in the HTML report.
 
 ## EXAMPLE
 <img src="images/postfix-bounce-report-html-example.png" alt="Postfix Bounce Report HTML Example" width="100%"/>
