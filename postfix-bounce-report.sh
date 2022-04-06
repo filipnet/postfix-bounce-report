@@ -22,6 +22,7 @@ PATTERN=$(xmllint --xpath 'string(/config/maillog_pattern)' $CONFIGFILE)
 BOUNCESEVERETY_THRESHOLD=$(xmllint --xpath 'string(/config/severety_threshold)' $CONFIGFILE)
 RECIPIENTS_CHECK=$(xmllint --xpath 'string(/config/recipients_check)' $CONFIGFILE)
 RECIPIENTS_LIST=$(xmllint --xpath 'string(/config/recipients_list)' $CONFIGFILE)
+DOMAINS=$(xmllint --xpath 'string(/config/domains)' $CONFIGFILE)
 
 TIME_START=$(date +"%s")
 ALLBOUNCES=`cat "${MAILLOG}" |grep "$(date -d '-'${PERIOD}' hour' '+%b %e')" |grep "${PATTERN}"`
@@ -55,12 +56,18 @@ table.blueTable td, table.blueTable th { border: 1px solid #AAAAAA; padding: 3px
                         if [ -z "${MAILFROM}" ]; then
                                 MAILFROM="undefined"
                         elif [[ "$MAILFROM" =~ $(echo ^\($(paste -sd'|' ${RECIPIENTS_LIST})\)$) ]]; then
-                                #echo "$MAILFROM is in the list"
+                                #echo "$MAILFROM is inside recipient list"
                                 MAILFROM=$(perl -pe "s/.*?from=<(.*?)>.*/\1/gm" <<< ${BOUNCE})
-                                MAILFROM="<span style='color:#FFFFFF; background-color:#FF0000'><b> ${MAILFROM} </b></span>"
-                                BOUNCESEVERETY="[CRITICAL]"
+				if [[ "${MAILFROM}" =~ ${DOMAINS} ]]; then
+					#echo "$MAILFROM is inside domain list and has been spoofed"
+					MAILFROM="<span style='color:#FFFFFF; background-color:#0B2038'>SPOOFED: <b> ${MAILFROM} </b></span>"
+				else
+					#echo "$MAILFROM is not inside domain list"
+					MAILFROM="<span style='color:#FFFFFF; background-color:#FF0000'>KNOWN: <b> ${MAILFROM} </b></span>"
+					BOUNCESEVERETY="[CRITICAL]"
+				fi
                         else
-                                #echo "$MAILFROM is not in the list"
+                                #echo "$MAILFROM is not inside recipient list"
                                 MAILFROM=$(perl -pe "s/.*?from=<(.*?)>.*/\1/gm" <<< ${BOUNCE})
                         fi
                 else
