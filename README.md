@@ -7,7 +7,7 @@ The script generates an HTML report based on rejected messages. Another script c
     - [FEATURES](#features)
     - [EXAMPLE](#example)
     - [HOW TO INSTALL](#how-to-install)
-        - [PREREQUISITES PERL INTERPRETER](#prerequisites-perl-interpreter)
+        - [PREREQUISITES PERL INTERPRETER AND XML EXTENSION](#prerequisites-perl-interpreter-and-xml-extension)
         - [CLONE REPOSITORY](#clone-repository)
     - [HOW TO USE](#how-to-use)
         - [CONFIGURATION](#configuration)
@@ -28,15 +28,12 @@ The script generates an HTML report based on rejected messages. Another script c
 
 ## HOW TO INSTALL
 
-### PREREQUISITES XML EXTENSION
+### PREREQUISITES PERL INTERPRETER AND XML EXTENSION
 
 Install XML library to read the XML files
-- Once System is fully updated, you can install libxml2-utils package through ```apt install libxml2-utils``` command.
-
-### PREREQUISITES PERL INTERPRETER
-
-Install Perl Package
-- Once System is fully updated, you can install perl package through ```apt install perl``` command.
+- Once System is fully updated, you can install libxml2-utils package through command:
+ - RedHat-based: ```dnf install perl libxml2-utils```
+ - Debian-based: ```apt install perl libxml2-utils```
 
 Check Perl Version
 - Since the package is installed now, you can check the Perl version through ```perl -v``` command.
