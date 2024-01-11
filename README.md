@@ -28,10 +28,15 @@ The script generates an HTML report based on rejected messages. Another script c
 
 ## HOW TO INSTALL
 
+### PREREQUISITES XML EXTENSION
+
+Install XML library to read the XML files
+- Once System is fully updated, you can install libxml2-utils package through ```apt install libxml2-utils``` command.
+
 ### PREREQUISITES PERL INTERPRETER
 
 Install Perl Package
-- Once System is fully updated, you can install perl package through ```dnf install perl``` command.
+- Once System is fully updated, you can install perl package through ```apt install perl``` command.
 
 Check Perl Version
 - Since the package is installed now, you can check the Perl version through ```perl -v``` command.
@@ -55,11 +60,18 @@ vim/nano config.xml
 ```
 
 ### CREATE SCHEDULED TASKS
-Create an entry in  ```/etc/crontab``` with the following content:
+
+Create a new file in  ```/etc/cron.d/``` directory:
+
+``` touch /etc/cron.d/postfix-bounce-report ```
+
+The content should be:
 
 ```
 # https://github.com/filipnet/postfix-bounce-report
+# Hourly script that collects the recipients for the report
 @hourly root /root/postfix-bounce-report/postfix-build-submission-recipients.sh > /dev/null
+# Daily script that sens out the report as an e-mail
 @daily root /root/postfix-bounce-report/postfix-bounce-report.sh > /dev/null
 ```
 
