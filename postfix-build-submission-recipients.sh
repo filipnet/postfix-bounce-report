@@ -9,9 +9,20 @@
 
 renice -n 10 $$ > /dev/null
 
-CONFIGFILE="/root/postfix-bounce-report/config.xml"
-MAILLOG=$(xmllint --xpath 'string(/config/maillog)' $CONFIGFILE)
-RECIPIENTS_LIST=$(xmllint --xpath 'string(/config/recipients_list)' $CONFIGFILE)
+# Load configuration file
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+CONFIG_FILE="$SCRIPT_DIR/postfix-bounce-report.conf"
+CONFIG_EXAMPLE="$CONFIG_FILE.example"
+
+if [[ -f "$CONFIG_FILE" ]]; then
+    echo -e "${GREEN}[INFO]${NC} Using config: $CONFIG_FILE"
+    source "$CONFIG_FILE"
+else
+    echo -e "${RED}[CRITICAL]${NC} Config file missing: $CONFIG_FILE"
+    echo -e "${YELLOW}[INFO]${NC} Please copy the example config:"
+    echo -e "       cp \"$CONFIG_EXAMPLE\" \"$CONFIG_FILE\""
+    exit 1
+fi
 
 if [ ! -e "$RECIPIENTS_LIST" ] ; then
     touch "$RECIPIENTS_LIST"

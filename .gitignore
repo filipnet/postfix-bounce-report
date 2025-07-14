@@ -1,2 +1,2 @@
-config.xml
-+config.xml.sample
+postfix-bounce-report.conf
++postfix-bounce-report.conf.example

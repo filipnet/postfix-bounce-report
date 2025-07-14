@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Bounce Report</title>
+  <style>
+    * {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+body {
+  font-family: Arial, sans-serif;
+  background-color: #f4f4f4;
+  color: #333;
+  padding: 20px;
+}
+h1 {
+  font-size: 24px;
+  color: #333;
+  margin-bottom: 10px;
+}
+table {
+  width: 100%;
+  max-width: 100%;
+  margin: 20px 0;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+th, td {
+  padding: 12px;
+  text-align: left;
+  border: 1px solid #ddd;
+}
+th {
+  background-color: #4CAF50;
+  color: white;
+}
+tr:nth-child(even) {
+  background-color: #f2f2f2;
+}
+td {
+  font-size: 14px;
+  word-wrap: break-word;
+  word-break: break-all;
+}
+td span {
+  font-weight: bold;
+}
+tr:hover {
+  background-color: #ddd;
+}
+@media (max-width: 600px) {
+  table, th, td {
+    font-size: 12px;
+    padding: 8px;
+  }
+  h1 {
+    font-size: 20px;
+  }
+}
+body.oneline table {
+  width: max-content !important;
+}
+
+body.oneline td {
+  white-space: nowrap !important;
+}
+
+  </style>
+</head>
+<body class="oneline">
+  <div style="overflow-x:auto;">
+  <h1>Bounce Report</h1>
+  <table>
+    <thead>
+      <tr>
+        <th>Date</th>
+        <th>Mail From</th>
+        <th>Mail To</th>
+        <th>Host Name</th>
+        <th>Host IP</th>
+        <th>Reason</th>
+      </tr>
+    </thead>
+    <tbody>
+    <tr><td>Jul 13 07:35:14</td><td>bounce@example1.com</td><td>user1@example.com</td><td>mail1.remotehost.com</td><td>192.0.2.1</td><td>Spam message rejected</td></tr>
+    <tr><td>Jul 13 08:02:45</td><td>bounces@example2.com</td><td>user1@example.com</td><td>mail2.remotehost.com</td><td>192.0.2.2</td><td>Try again later</td></tr>
+    <tr><td>Jul 13 10:02:34</td><td>bounces@example3.com</td><td>user1@example.com</td><td>mail3.remotehost.com</td><td>192.0.2.3</td><td>Spam message rejected</td></tr>
+    <tr><td>Jul 13 10:52:28</td><td>sender@example4.com</td><td>user1@example.com</td><td>mail4.remotehost.com</td><td>192.0.2.4</td><td>Spam message rejected</td></tr>
+    <tr><td>Jul 13 13:07:17</td><td>no-reply@example5.com</td><td>user2@example.com</td><td>mail5.remotehost.com</td><td>192.0.2.5</td><td>Cannot find your hostname</td></tr>
+    <tr><td>Jul 13 14:09:31</td><td>sender@example6.com</td><td>user3@example.com</td><td>mail6.remotehost.com</td><td>192.0.2.6</td><td>Cannot find your hostname</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p>Runtime: 2 Minutes 47 Seconds</p>
+</body>
+</html>

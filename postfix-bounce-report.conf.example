@@ -1,0 +1,30 @@
+# Locale (used for date parsing)
+LC_ALL="de_DE.utf8"
+
+# Terminal colors
+RED="\033[0;31m"
+GREEN="\033[0;32m"
+YELLOW="\033[0;33m"
+NC="\033[0m"
+
+# HTML/CSS template selection
+TEMPLATE_BASENAME="template.custom"
+
+# Log file location and time window
+MAILLOG="/var/log/maillog"
+MAILLOG_PERIOD="24"
+
+# Pattern to use
+MAILLOG_PATTERN="blocked using|milter-reject|rejected|reject"
+
+# Email settings
+LOGMAIL_FROM="do-not-reply@example.com"
+LOGMAIL_TO="user@example.com"
+LOGMAIL_SUBJECT="Postfix Bounce Report"
+
+# Optional: validate MAILFROM
+RECIPIENTS_CHECK="true"
+RECIPIENTS_LIST="/etc/postfix/submission_recipient"
+SEVERETY_THRESHOLD="50"
+ONELINE="false"
+DOMAINS="example.com|example.org|example.net"

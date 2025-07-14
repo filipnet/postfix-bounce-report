@@ -1,134 +1,159 @@
 #!/bin/bash
 #
 # Script Name   : postfix-bounce-report.sh
-# Description   : Analyzes the postfix logfile for bounced and rejected emails,
-#                 optionaly validate/cross check FROM-value against submission list.
-#                 Script also generates HTML report and send via sendmail.
+# Description   : Analyzes the postfix log for bounced and rejected emails,
+#                 generates an HTML report and sends it via sendmail.
 # Author        : https://github.com/filipnet/postfix-bounce-report
-# License       : BSD 3-Clause "New" or "Revised" License
-# ======================================================================================
+# License       : BSD 3-Clause
 
 renice -n 10 $$ > /dev/null
-export LC_ALL=de_DE.utf8
+export LC_ALL="${LC_ALL}"
 
-# Read XML configuration file and create variables set
-CONFIGFILE="/root/postfix-bounce-report/config.xml"
+# Load configuration
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+CONFIG_FILE="$SCRIPT_DIR/postfix-bounce-report.conf"
+CONFIG_EXAMPLE="$CONFIG_FILE.example"
 
-# Function to read the XML data and assign to variables
-read_xml_config() {
-    MAILLOG=$(xmllint --xpath 'string(/config/maillog)' $CONFIGFILE)
-    LOGMAILFROM=$(xmllint --xpath 'string(/config/logmail_from)' $CONFIGFILE)
-    LOGMAILTO=$(xmllint --xpath 'string(/config/logmail_to)' $CONFIGFILE)
-    LOGMAILSUBJECT=$(xmllint --xpath 'string(/config/logmail_subject)' $CONFIGFILE)
-    PERIOD=$(xmllint --xpath 'string(/config/maillog_period)' $CONFIGFILE)
-    PATTERN=$(xmllint --xpath 'string(/config/maillog_pattern)' $CONFIGFILE)
-    BOUNCESEVERETY_THRESHOLD=$(xmllint --xpath 'string(/config/severety_threshold)' $CONFIGFILE)
-    RECIPIENTS_CHECK=$(xmllint --xpath 'string(/config/recipients_check)' $CONFIGFILE)
-    RECIPIENTS_LIST=$(xmllint --xpath 'string(/config/recipients_list)' $CONFIGFILE)
-    DOMAINS=$(xmllint --xpath 'string(/config/domains)' $CONFIGFILE)
+if [[ -f "$CONFIG_FILE" ]]; then
+    echo "[INFO] Using config: $CONFIG_FILE"
+    source "$CONFIG_FILE"
+else
+    echo "[CRITICAL] Config file missing: $CONFIG_FILE"
+    echo "[INFO] Please copy the example config:"
+    echo "       cp \"$CONFIG_EXAMPLE\" \"$CONFIG_FILE\""
+    exit 1
+fi
+
+# Load template
+TEMPLATE_HTML="$SCRIPT_DIR/templates/${TEMPLATE_BASENAME}.html"
+TEMPLATE_CSS="$SCRIPT_DIR/templates/${TEMPLATE_BASENAME}.css"
+
+if [[ ! -f "$TEMPLATE_HTML" || ! -f "$TEMPLATE_CSS" ]]; then
+    echo "[WARN] Custom template not found, using default."
+    TEMPLATE_BASENAME="template.default"
+    TEMPLATE_HTML="$SCRIPT_DIR/templates/${TEMPLATE_BASENAME}.html"
+    TEMPLATE_CSS="$SCRIPT_DIR/templates/${TEMPLATE_BASENAME}.css"
+fi
+
+STYLE=$(< "$TEMPLATE_CSS")
+TEMPLATE=$(< "$TEMPLATE_HTML")
+
+# HTML escaping function
+html_escape() {
+    local input="$1"
+    input="${input//&/&amp;}"
+    input="${input//</&lt;}"
+    input="${input//>/&gt;}"
+    input="${input//\"/&quot;}"
+    input="${input//\'/&apos;}"
+    echo "$input"
 }
 
-# Function to generate the HTML report
 generate_html_report() {
-    MAILINFO='<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Bounce Report</title>'
-    MAILINFO+='<style>'
-    MAILINFO+='* { margin: 0; padding: 0; box-sizing: border-box; }'
-    MAILINFO+='body { font-family: Arial, sans-serif; background-color: #f4f4f4; color: #333; padding: 20px; }'
-    MAILINFO+='h1 { font-size: 24px; color: #333; margin-bottom: 10px; }'
-    MAILINFO+='table { width: 100%; max-width: 100%; margin: 20px 0; border-collapse: collapse; table-layout: fixed; }'
+    echo "[INFO] Generating HTML report ..."
+    MAILINFO="${TEMPLATE//\{\{STYLE\}\}/$STYLE}"
+    ROWS=""
 
-    MAILINFO+='th, td { padding: 12px; text-align: left; border: 1px solid #ddd; }'
-    MAILINFO+='th { background-color: #4CAF50; color: white; }'
-    MAILINFO+='tr:nth-child(even) { background-color: #f2f2f2; }'
-    MAILINFO+='td { font-size: 14px; word-wrap: break-word; word-break: break-all; }'
-    MAILINFO+='td span { font-weight: bold; }'
-    MAILINFO+='tr:hover { background-color: #ddd; }'
-    MAILINFO+='@media (max-width: 600px) {'
-    MAILINFO+='    table, th, td { font-size: 12px; padding: 8px; }'
-    MAILINFO+='    h1 { font-size: 20px; }'
-    MAILINFO+='}'
-    MAILINFO+='</style></head><body>'
-    MAILINFO+="<h1>Bounce Report</h1>"
-    MAILINFO+="<table><thead><tr><th>Date</th><th>Mail From</th><th>Mail To</th><th>Host Name</th><th>Host IP</th><th>Reason</th></tr></thead><tbody>"
-
-    while IFS= read -r BOUNCE
-    do
-        BOUNCE="${BOUNCE//$'\n'/ }"
-        DATETIME=$(perl -pe "s/^(\w+\s+\w+\s+\w+:\w+:\w+)\s.*/\1/g" <<< ${BOUNCE})
-
-        if [[ "$RECIPIENTS_CHECK" = true ]]; then
-            MAILFROM=$(perl -pe "s/.*?from=<(.*?)>.*/\1/gm" <<< ${BOUNCE})
-            if [ -z "${MAILFROM}" ]; then
-                MAILFROM="undefined"
-            elif [[ "$MAILFROM" =~ $(echo ^\($(paste -sd'|' ${RECIPIENTS_LIST})\)$) ]]; then
-                MAILFROM=$(perl -pe "s/.*?from=<(.*?)>.*/\1/gm" <<< ${BOUNCE})
-                if [[ "${MAILFROM}" =~ ${DOMAINS} ]]; then
-                    MAILFROM="<span style='color:#FFFFFF; background-color:#f44336'>SPOOFED: <b> ${MAILFROM} </b></span>"
-                else
-                    MAILFROM="<span style='color:#FFFFFF; background-color:#ff9800'>KNOWN: <b> ${MAILFROM} </b></span>"
-                    BOUNCESEVERETY="[CRITICAL]"
-                fi
-            else
-                MAILFROM=$(perl -pe "s/.*?from=<(.*?)>.*/\1/gm" <<< ${BOUNCE})
-            fi
-        else
-            MAILFROM=$(perl -pe "s/.*?from=<(.*?)>.*/\1/gm" <<< ${BOUNCE})
-        fi
-
-        MAILTO=$(perl -pe "s/.*to=<(.*?)>.*/\1/g" <<< ${BOUNCE})
-        HELO=$(perl -pe "s/.*helo=<(.*?)>.*/\1/g" <<< ${BOUNCE})
-        HOSTIP=$(awk 'match($0, /[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+/) {i[substr($0,RSTART,RLENGTH)]=1}END{for(ip in i){printf("%s\n", ip)}}' <<< ${BOUNCE})
-
-        if [[ $BOUNCE == *"blocked using"* ]]; then
-            REASON=$(perl -pe "s/.*blocked using (.*?);.*/\1/g" <<< ${BOUNCE})
-        elif [[ $BOUNCE == *"rejected"* ]]; then
-            REASON=$(perl -pe "s/.*rejected: */\1/g" <<< ${BOUNCE})
-            REASON=$(echo $REASON |sed -r 's/[<>]+//g')
-        elif [[ $BOUNCE == *"milter-reject"* ]]; then
-            REASON=$(perl -pe "s/.*milter-reject: */\1/g" <<< ${BOUNCE})
-            REASON=$(echo $REASON |sed -r 's/[<>!]+//g')
-        elif [[ $BOUNCE == *"reject"* ]]; then
-            REASON=$(perl -pe "s/.*reject: */\1/g" <<< ${BOUNCE})
-            REASON=$(echo $REASON |sed -r 's/[<>]+//g')
-        else
-            REASON="undefined: $BOUNCE"
-        fi
-
-        MAILINFO+="<tr><td>${DATETIME}</td><td>${MAILFROM}</td><td>${MAILTO}</td><td>${HELO}</td><td>${HOSTIP}</td><td>${REASON}</td></tr>"
-    done <<< "$ALLBOUNCES"
-
-    MAILINFO+="</tbody></table>"
-    # Time report
-    TIME_DIFF=$(($(date +"%s")-${TIME_START}))
-    MAILINFO+="Runtime: $((${TIME_DIFF} / 60)) Minutes $((${TIME_DIFF} % 60)) Seconds"
-    MAILINFO+="</body></html>"
-}
-
-# Function to send the email
-send_email() {
-    if [ ! $BOUNCESEVERETY ]; then
-        if [ ${COUNTBOUNCES} -gt "${BOUNCESEVERETY_THRESHOLD}" ]; then BOUNCESEVERETY="[WARNING]"; else BOUNCESEVERETY="[INFO]"; fi
+    # Determine CSS class based on ONELINE flag
+    if [[ "$ONELINE" == "true" ]]; then
+        CLASS_ONELINE="oneline"
+    else
+        CLASS_ONELINE=""
     fi
 
-    # E-Mail notification function
+    MAILINFO="${MAILINFO//\{\{CLASS_ONELINE\}\}/$CLASS_ONELINE}"
+
+    while IFS= read -r line; do
+        matched=""
+        for pattern in ${MAILLOG_PATTERN//|/ }; do
+            if echo "$line" | grep -q -E "$pattern"; then
+                matched=1
+                break
+            fi
+        done
+        [[ -z "$matched" ]] && continue
+
+        datetime=$(echo "$line" | awk '{print $1" "$2" "$3}')
+        mailfrom=$(perl -pe "s/.*?from=<(.*?)>.*/\1/g" <<< "$line")
+        mailto=$(perl -pe "s/.*?to=<(.*?)>.*/\1/g" <<< "$line")
+        helo=$(perl -pe "s/.*?helo=<(.*?)>.*/\1/g" <<< "$line")
+        hostip=$(awk 'match($0, /[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+/) {print substr($0,RSTART,RLENGTH)}' <<< "$line")
+
+        if [[ "$line" == *"blocked using"* ]]; then
+            reason=$(perl -pe "s/.*blocked using (.*?);.*/\1/g" <<< "$line")
+        elif [[ "$line" == *"milter-reject"* ]]; then
+            reason=$(perl -pe "s/.*milter-reject: *//g" <<< "$line" | sed -r 's/[<>!]+//g')
+        elif [[ "$line" == *"rejected"* ]]; then
+            reason=$(perl -pe "s/.*rejected: *//g" <<< "$line" | sed -r 's/[<>]+//g')
+        elif [[ "$line" == *"reject"* ]]; then
+            reason=$(perl -pe "s/.*reject: *//g" <<< "$line" | sed -r 's/[<>]+//g')
+        else
+            reason="undefined"
+        fi
+
+        ROWS+=$'\n<tr><td>'"$(html_escape "$datetime")"'</td>'
+        ROWS+='<td>'"$(html_escape "$mailfrom")"'</td>'
+        ROWS+='<td>'"$(html_escape "$mailto")"'</td>'
+        ROWS+='<td>'"$(html_escape "$helo")"'</td>'
+        ROWS+='<td>'"$(html_escape "$hostip")"'</td>'
+        ROWS+='<td>'"$(html_escape "$reason")"'</td></tr>'
+    done <<< "$ALLBOUNCES"
+
+    MAILINFO="${MAILINFO//\{\{BODY\}\}/$ROWS}"
+
+    local run_time=$(( $(date +%s) - TIME_START ))
+    local run_min=$((run_time / 60))
+    local run_sec=$((run_time % 60))
+
+    MAILINFO="${MAILINFO//\{\{RUNTIME_MIN\}\}/$run_min}"
+    MAILINFO="${MAILINFO//\{\{RUNTIME_SEC\}\}/$run_sec}"
+}
+
+send_email() {
+    echo "[INFO] Sending report mail to $LOGMAIL_TO"
+    if [ -z "$BOUNCESEVERITY" ]; then
+        if [ "$COUNTBOUNCES" -gt "$SEVERETY_THRESHOLD" ]; then
+            BOUNCESEVERITY="[WARNING]"
+        else
+            BOUNCESEVERITY="[INFO]"
+        fi
+    fi
+
     (
-    echo "From: ${LOGMAILFROM}"
-    echo "To: ${LOGMAILTO}"
-    echo "Subject: ${BOUNCESEVERETY} ${LOGMAILSUBJECT} for ${HOSTNAME}"
-    echo "Mime-Version: 1.0"
-    echo "Content-Type: text/html"
-    echo ${MAILINFO}
+        echo "From: ${LOGMAIL_FROM}"
+        echo "To: ${LOGMAIL_TO}"
+        echo "Subject: ${BOUNCESEVERITY} ${LOGMAIL_SUBJECT} for ${HOSTNAME}"
+        echo "Mime-Version: 1.0"
+        echo "Content-Type: text/html"
+        echo "$MAILINFO"
     ) | sendmail -t
 }
 
-# Main Script Execution
-read_xml_config
+# Start
+echo "[INFO] Starting postfix bounce report ..."
+TIME_START=$(date +%s)
 
-TIME_START=$(date +"%s")
-ALLBOUNCES=`cat "${MAILLOG}" |grep "$(date -d '-'${PERIOD}' hour' '+%b %e')" |grep "${PATTERN}"`
-COUNTBOUNCES=$( [ -n "$ALLBOUNCES" ] && echo "$ALLBOUNCES" | wc -l || echo 0 )
+START_EPOCH=$(date -d "-${MAILLOG_PERIOD} hour" '+%s')
 
-if [ ${COUNTBOUNCES} -gt 0 ]; then
+ALLBOUNCES=$(awk -v threshold="$START_EPOCH" '
+{
+  log_date = $1 " " $2 " " $3;
+  cmd = "date -d \"" log_date "\" +%s";
+  cmd | getline log_epoch;
+  close(cmd);
+  if (log_epoch >= threshold) print;
+}' "$MAILLOG")
+
+COUNTBOUNCES=$(echo "$ALLBOUNCES" | grep -E "${MAILLOG_PATTERN}" | wc -l)
+
+echo "[INFO] Found $COUNTBOUNCES bounce/reject entries"
+
+if [ "$COUNTBOUNCES" -gt 0 ]; then
     generate_html_report
     send_email
+    echo "[INFO] Report sent"
+else
+    echo "[INFO] No relevant entries found. No mail sent."
 fi
+
+echo "[INFO] Script completed in $(( $(date +%s) - TIME_START )) sec"

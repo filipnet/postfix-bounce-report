@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Postfix Bounce Report</title>
+  <style>
+    {{STYLE}}
+  </style>
+</head>
+<body class="{{CLASS_ONELINE}}">
+  <h1>Postfix Bounce Report</h1>
+  <p>Report runtime: {{RUNTIME_MIN}} min {{RUNTIME_SEC}} sec</p>
+  <div>
+    <table>
+      <thead>
+        <tr>
+          <th>Date/Time</th>
+          <th>From</th>
+          <th>To</th>
+          <th>HELO</th>
+          <th>IP</th>
+          <th>Reason</th>
+        </tr>
+      </thead>
+      <tbody>
+        {{BODY}}
+      </tbody>
+    </table>
+  </div>
+</body>
+</html>
