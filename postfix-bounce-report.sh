@@ -51,28 +51,34 @@ html_escape() {
 
 generate_html_report() {
     echo "[INFO] Generating HTML report ..."
+
     MAILINFO="${TEMPLATE//\{\{STYLE\}\}/$STYLE}"
     ROWS=""
 
-    # Determine CSS class based on ONELINE flag
     if [[ "$ONELINE" == "true" ]]; then
         CLASS_ONELINE="oneline"
     else
         CLASS_ONELINE=""
     fi
-
     MAILINFO="${MAILINFO//\{\{CLASS_ONELINE\}\}/$CLASS_ONELINE}"
 
-    while IFS= read -r line; do
-        matched=""
-        for pattern in ${MAILLOG_PATTERN//|/ }; do
-            if echo "$line" | grep -q -E "$pattern"; then
-                matched=1
-                break
-            fi
-        done
-        [[ -z "$matched" ]] && continue
+    if [[ "$RECIPIENTS_CHECK" == "true" && -f "$RECIPIENTS_LIST" ]]; then
+        mapfile -t RECIPIENTS < "$RECIPIENTS_LIST"
+    fi
 
+    is_known_sender() {
+        local sender="$1"
+        for recipient in "${RECIPIENTS[@]}"; do
+            [[ "$sender" == "$recipient" ]] && return 0
+        done
+        return 1
+    }
+
+    process_line() {
+        local line="$1"
+        [[ -z "$line" ]] && return
+
+        local datetime mailfrom mailto helo hostip reason cssclass=""
         datetime=$(echo "$line" | awk '{print $1" "$2" "$3}')
         mailfrom=$(perl -pe "s/.*?from=<(.*?)>.*/\1/g" <<< "$line")
         mailto=$(perl -pe "s/.*?to=<(.*?)>.*/\1/g" <<< "$line")
@@ -91,13 +97,97 @@ generate_html_report() {
             reason="undefined"
         fi
 
-        ROWS+=$'\n<tr><td>'"$(html_escape "$datetime")"'</td>'
+        # extract domain from mailfrom
+#        mailfrom_domain="${mailfrom#*@}"
+
+#        if [[ "$RECIPIENTS_CHECK" == "true" && -n "$mailfrom" ]]; then
+#            if is_known_sender "$mailfrom"; then
+#                # only mark if domain NOT in DOMAINS variable
+#                if ! [[ "$mailfrom_domain" =~ ^($DOMAINS)$ ]]; then
+#                    cssclass="resent"
+#                fi
+#            fi
+#        fi
+
+
+# TEST SECTION
+
+
+
+mailfrom_domain="${mailfrom#*@}"
+base_domain=$(echo "$mailfrom_domain" | awk -F. '{print $(NF-1)"."$NF}')
+
+if [[ -n "$mailfrom" ]]; then
+    if is_known_sender "$mailfrom"; then
+        if [[ "$RECIPIENTS_CHECK" == "true" ]]; then
+            if ! [[ "$base_domain" =~ ^($DOMAINS)$ ]]; then
+                cssclass="resent"
+                echo "[DEBUG] Marking as 'resent': mailfrom='$mailfrom', base_domain='$base_domain'"
+            fi
+        fi
+    fi
+
+    if [[ "$SPOOFING_CHECK" == "true" ]]; then
+        if [[ "$base_domain" =~ ^($DOMAINS)$ ]]; then
+            cssclass="spoofing"
+            echo "[DEBUG] Marking as 'spoofing': mailfrom='$mailfrom', base_domain='$base_domain'"
+        fi
+    fi
+fi
+
+
+###
+
+
+        ROWS+=$'\n<tr class="'"$cssclass"'"><td>'"$(html_escape "$datetime")"'</td>'
         ROWS+='<td>'"$(html_escape "$mailfrom")"'</td>'
         ROWS+='<td>'"$(html_escape "$mailto")"'</td>'
         ROWS+='<td>'"$(html_escape "$helo")"'</td>'
         ROWS+='<td>'"$(html_escape "$hostip")"'</td>'
         ROWS+='<td>'"$(html_escape "$reason")"'</td></tr>'
-    done <<< "$ALLBOUNCES"
+    }
+
+    if [[ "$GROUP_BY_FROM" == "true" ]]; then
+        declare -A grouped_lines
+        declare -A bounce_counts
+
+        while IFS= read -r line; do
+            matched=""
+            for pattern in ${MAILLOG_PATTERN//|/ }; do
+                if echo "$line" | grep -q -E "$pattern"; then
+                    matched=1
+                    break
+                fi
+            done
+            [[ -z "$matched" ]] && continue
+
+            mailfrom=$(perl -pe "s/.*?from=<(.*?)>.*/\1/g" <<< "$line")
+            [[ -z "$mailfrom" || "$mailfrom" == "$line" ]] && continue
+
+            grouped_lines["$mailfrom"]+=$line$'\n'
+            ((bounce_counts["$mailfrom"]++))
+        done <<< "$ALLBOUNCES"
+
+        for sender in "${!grouped_lines[@]}"; do
+            escaped_sender=$(html_escape "$sender")
+            ROWS+=$'\n<tr class="grouphead"><td colspan="6"><strong>'"$escaped_sender"' ('"${bounce_counts[$sender]}"' bounces)</strong></td></tr>'
+            while IFS= read -r line; do
+                process_line "$line"
+            done <<< "${grouped_lines[$sender]}"
+        done
+    else
+        while IFS= read -r line; do
+            matched=""
+            for pattern in ${MAILLOG_PATTERN//|/ }; do
+                if echo "$line" | grep -q -E "$pattern"; then
+                    matched=1
+                    break
+                fi
+            done
+            [[ -z "$matched" ]] && continue
+            process_line "$line"
+        done <<< "$ALLBOUNCES"
+    fi
 
     MAILINFO="${MAILINFO//\{\{BODY\}\}/$ROWS}"
 
@@ -135,14 +225,23 @@ TIME_START=$(date +%s)
 
 START_EPOCH=$(date -d "-${MAILLOG_PERIOD} hour" '+%s')
 
-ALLBOUNCES=$(awk -v threshold="$START_EPOCH" '
-{
-  log_date = $1 " " $2 " " $3;
-  cmd = "date -d \"" log_date "\" +%s";
-  cmd | getline log_epoch;
-  close(cmd);
-  if (log_epoch >= threshold) print;
-}' "$MAILLOG")
+#ALLBOUNCES=$(awk -v threshold="$START_EPOCH" '
+#{
+#  log_date = $1 " " $2 " " $3;
+#  cmd = "date -d \"" log_date "\" +%s";
+#  cmd | getline log_epoch;
+#  close(cmd);
+#  if (log_epoch >= threshold) print;
+#}' "$MAILLOG")
+
+ALLBOUNCES=$(perl -ne '
+  use Time::Piece;
+  my $threshold = '"$START_EPOCH"';
+  my $year = (localtime)[5] + 1900;
+  my ($mon, $day, $time) = /^(\w+)\s+(\d+)\s+(\d+:\d+:\d+)/ or next;
+  my $logtime = Time::Piece->strptime("$mon $day $year $time", "%b %d %Y %T")->epoch;
+  print if $logtime >= $threshold;
+' "$MAILLOG")
 
 COUNTBOUNCES=$(echo "$ALLBOUNCES" | grep -E "${MAILLOG_PATTERN}" | wc -l)
 

@@ -1,6 +1,11 @@
 # Locale (used for date parsing)
 LC_ALL="de_DE.utf8"
 
+# Output formatting
+ONELINE="false"
+GROUP_BY_FROM="true"
+SEVERETY_THRESHOLD="50"
+
 # Terminal colors
 RED="\033[0;31m"
 GREEN="\033[0;32m"
@@ -24,7 +29,6 @@ LOGMAIL_SUBJECT="Postfix Bounce Report"
 
 # Optional: validate MAILFROM
 RECIPIENTS_CHECK="true"
+SPOOFING_CHECK="true"
 RECIPIENTS_LIST="/etc/postfix/submission_recipient"
-SEVERETY_THRESHOLD="50"
-ONELINE="false"
 DOMAINS="example.com|example.org|example.net"

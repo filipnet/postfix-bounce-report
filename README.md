@@ -19,10 +19,12 @@ This script generates an HTML report based on rejected messages. Another script 
     - [Clone the Repository](#clone-the-repository)
   - [Configuration](#configuration)
     - [Configuration via `.conf` File](#configuration-via-conf-file)
+  - [Output Formatting Options](#output-formatting-options)
   - [Scheduled Execution (Cron)](#scheduled-execution-cron)
     - [Option A: User Crontab (crontab -e)](#option-a-user-crontab-crontab--e)
     - [Option B: System-wide Cron File (/etc/crontab)](#option-b-system-wide-cron-file-etccrontab)
     - [Log Rotation Compatibility](#log-rotation-compatibility)
+  - [Sender Marking (optional)](#sender-marking-optional)
   - [Contributions](#contributions)
   - [License](#license)
 
@@ -35,7 +37,7 @@ This script generates an HTML report based on rejected messages. Another script 
 - The default subject is "[INFO] Postfix Bounce Report". A threshold can be set to change the subject to [WARNING]. If there is a match with the submission recipient list, [CRITICAL] is set.
 
 > ⚠️ **Important Notice**  
-> This script has undergone **significant changes** in the latest version (2025-07-11).  
+> This script has undergone **significant changes** in the latest version (2025-07-18).  
 > If you have used a previous version, please consult the updated [CHANGELOG.md](./CHANGELOG.md) before upgrading.  
 > Existing setups may require adaptation to the new format and template handling.
 
@@ -105,25 +107,39 @@ Using a `.conf` file eliminates the need for additional XML parser dependencies.
 
 The script reads its settings from a configuration file. Below is a list of supported options:
 
-| Variable             | Description                                                                                    | Example Value(s)                      |
-| -------------------- | ---------------------------------------------------------------------------------------------- | ------------------------------------- |
-| `LC_ALL`             | Locale setting for consistent date/time and string formatting during script execution.         | `"de_DE.utf8"`                        |
-| `RED`                | ANSI escape code for red terminal text.                                                        | `"\033[0;31m"`                        |
-| `GREEN`              | ANSI escape code for green terminal text.                                                      | `"\033[0;32m"`                        |
-| `YELLOW`             | ANSI escape code for yellow terminal text.                                                     | `"\033[0;33m"`                        |
-| `NC`                 | ANSI escape code to reset terminal color.                                                      | `"\033[0m"`                           |
-| `TEMPLATE_BASENAME`  | Basename (without extension) of the HTML/CSS template files used for the report.               | `"template.custom"`                   |
-| `MAILLOG`            | Path to the Postfix mail log file to be analyzed.                                              | `"/var/log/maillog"`                  |
-| `MAILLOG_PERIOD`     | Time range in hours to scan for relevant log entries.                                          | `"24"`                                |
-| `MAILLOG_PATTERN`    | Regular expression to match relevant log lines (e.g. bounces or rejections).                   | `"blocked "`                          |
-| `LOGMAIL_FROM`       | Email address used as sender of the bounce report.                                             | `"do-not-reply@example.com"`          |
-| `LOGMAIL_TO`         | Email address of the recipient who will receive the report.                                    | `"user@example.com"`                  |
-| `LOGMAIL_SUBJECT`    | Subject line for the report email.                                                             | `"Postfix Bounce Report"`             |
-| `RECIPIENTS_CHECK`   | Enables verification of sender addresses against a known list when set to `true`.              | `"true"` or `"false"`                 |
-| `RECIPIENTS_LIST`    | Path to file with one valid recipient address per line.                                        | `"/etc/postfix/submission_recipient"` |
-| `SEVERETY_THRESHOLD` | Numeric threshold to classify bounce severity (e.g. highlight known spoof attempts).           | `"50"`                                |
-| `ONELINE`            | Disables line wrapping and enables horizontal scrolling in the HTML report when set to `true`. | `"true"` or `"false"`                 |
-| `DOMAINS`            | Pipe-separated list of trusted internal domains for spoof detection.                           | `"example.com"`                       |
+| Variable             | Description                                                                            | Example Value(s)                      |
+| -------------------- | -------------------------------------------------------------------------------------- | ------------------------------------- |
+| `LC_ALL`             | Locale setting for consistent date/time and string formatting during script execution. | `"de_DE.utf8"`                        |
+| `RED`                | ANSI escape code for red terminal text.                                                | `"\033[0;31m"`                        |
+| `GREEN`              | ANSI escape code for green terminal text.                                              | `"\033[0;32m"`                        |
+| `YELLOW`             | ANSI escape code for yellow terminal text.                                             | `"\033[0;33m"`                        |
+| `NC`                 | ANSI escape code to reset terminal color.                                              | `"\033[0m"`                           |
+| `TEMPLATE_BASENAME`  | Basename (without extension) of the HTML/CSS template files used for the report.       | `"template.custom"`                   |
+| `MAILLOG`            | Path to the Postfix mail log file to be analyzed.                                      | `"/var/log/maillog"`                  |
+| `MAILLOG_PERIOD`     | Time range in hours to scan for relevant log entries.                                  | `"24"`                                |
+| `MAILLOG_PATTERN`    | Regular expression to match relevant log lines (e.g. bounces or rejections).           | `"blocked "`                          |
+| `LOGMAIL_FROM`       | Email address used as sender of the bounce report.                                     | `"do-not-reply@example.com"`          |
+| `LOGMAIL_TO`         | Email address of the recipient who will receive the report.                            | `"user@example.com"`                  |
+| `LOGMAIL_SUBJECT`    | Subject line for the report email.                                                     | `"Postfix Bounce Report"`             |
+| `RECIPIENTS_CHECK`   | Enables verification of sender addresses against a known list when set to `true`.      | `"true"` or `"false"`                 |
+| `RECIPIENTS_LIST`    | Path to file with one valid recipient address per line.                                | `"/etc/postfix/submission_recipient"` |
+| `SEVERETY_THRESHOLD` | Numeric threshold to classify bounce severity (e.g. highlight known spoof attempts).   | `"50"`                                |
+| `DOMAINS`            | Pipe-separated list of trusted internal domains for spoof detection.                   | `"example.com"`                       |
+
+## Output Formatting Options
+
+The script supports two options to control the formatting of the HTML report:
+
+| Variable               | Description                                                                                                                                                                                                                                                                                        |
+| ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ONELINE="true"`       | Displays each bounce in a **single unwrapped row**. Long lines are not broken – horizontal scrolling may be required. Useful for **fast scanning** or **compact overviews**.                                                                                                                       |
+| `GROUP_BY_FROM="true"` | Groups all bounces by **sender address** (`from`). Each sender is shown with the **total number of bounces**, followed by a detailed list of individual bounces including **timestamp**, **recipient**, **IP**, and **rejection reason**. Ideal for **clustered analysis** of problematic senders. |
+
+Example Use Cases:
+
+- Set `ONELINE="true"` to review a high number of bounces quickly in a compact layout.
+- Set `GROUP_BY_FROM="true"` to identify which senders cause the most issues and inspect grouped bounce details.
+- Combine both for a condensed, grouped summary view – or set both to `false` for the full expanded format.
 
 ## Scheduled Execution (Cron)
 
@@ -191,6 +207,10 @@ Or if your system uses systemd timers:
 ```bash
 systemctl list-timers --all | grep logrotate
 ```
+
+## Sender Marking (optional)
+
+For detailed information about how bounced emails are marked as **resent** or **spoofing**, and how the known senders list is generated and used, see the separate documentation file [SENDER_MARKING.md](./SENDER_MARKING.md).
 
 ## Contributions
 

@@ -63,3 +63,18 @@ body.oneline table {
 body.oneline td {
   white-space: nowrap !important;
 }
+
+/* Group by From */
+
+.grouphead {
+  background-color: #e9e9e9;
+}
+
+/* Mark known addresses */
+
+tr.spoofing {
+    background-color: #fff3cd;
+}
+tr.resent {
+    background-color: #f8d7da;
+}
